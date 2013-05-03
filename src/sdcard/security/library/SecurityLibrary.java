@@ -22,6 +22,7 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.spec.InvalidKeySpecException;
+
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
@@ -66,16 +67,19 @@ import iaik.pkcs.pkcs11.Token;
 import iaik.pkcs.pkcs11.TokenException;
 import iaik.pkcs.pkcs11.TokenInfo;
 import iaik.pkcs.pkcs11.objects.AESSecretKey;
+import iaik.pkcs.pkcs11.objects.ByteArrayAttribute;
 import iaik.pkcs.pkcs11.objects.DES2SecretKey;
 import iaik.pkcs.pkcs11.objects.DES3SecretKey;
 import iaik.pkcs.pkcs11.objects.DESSecretKey;
 import iaik.pkcs.pkcs11.objects.GenericSecretKey;
 import iaik.pkcs.pkcs11.objects.Key;
 import iaik.pkcs.pkcs11.objects.KeyPair;
+import iaik.pkcs.pkcs11.objects.LongAttribute;
 import iaik.pkcs.pkcs11.objects.PrivateKey;
 import iaik.pkcs.pkcs11.objects.PublicKey;
 import iaik.pkcs.pkcs11.objects.RSAPrivateKey;
 import iaik.pkcs.pkcs11.objects.RSAPublicKey;
+import iaik.pkcs.pkcs11.objects.SecretKey;
 import iaik.pkcs.pkcs11.objects.X509AttributeCertificate;
 import iaik.pkcs.pkcs11.objects.X509PublicKeyCertificate;
 import iaik.pkcs.pkcs11.wrapper.PKCS11Constants;
@@ -338,7 +342,6 @@ public class SecurityLibrary  {
 		
 		return sessionInfoStr;
 	}
-	
 	public Object generateEncryptKey(long algorithmid) throws TokenException{
 		Mechanism keyMechanism = Mechanism.get(algorithmid);
 		
@@ -347,49 +350,66 @@ public class SecurityLibrary  {
 			secretKeyTemplate.getEncrypt().setBooleanValue(Boolean.TRUE);
 			secretKeyTemplate.getDecrypt().setBooleanValue(Boolean.TRUE);
 			return session.generateKey(keyMechanism, secretKeyTemplate);
-		}
-		else if (algorithmid == PKCS11Constants.CKM_GENERIC_SECRET_KEY_GEN){
-			
-				Mechanism keyGenerationMechanism = Mechanism
-				    .get(PKCS11Constants.CKM_GENERIC_SECRET_KEY_GEN);
-
-				GenericSecretKey secretKeyTemplate = new GenericSecretKey();
-				secretKeyTemplate.getValueLen().setLongValue(new Long(16));
-
-				return  session.generateKey(keyGenerationMechanism, secretKeyTemplate);
-		}
-		else if (algorithmid == PKCS11Constants.CKM_DES_KEY_GEN){
+		} else if (algorithmid == PKCS11Constants.CKM_DES_KEY_GEN){
 			DESSecretKey secretKeyTemplate = new DESSecretKey();
 			secretKeyTemplate.getEncrypt().setBooleanValue(Boolean.TRUE);
 			secretKeyTemplate.getDecrypt().setBooleanValue(Boolean.TRUE);
 			return session.generateKey(keyMechanism, secretKeyTemplate);
-		}
-		else if (algorithmid == PKCS11Constants.CKM_DES2_KEY_GEN){
+		} else if (algorithmid == PKCS11Constants.CKM_DES2_KEY_GEN){
 			DES2SecretKey secretKeyTemplate = new DES2SecretKey();
 			secretKeyTemplate.getEncrypt().setBooleanValue(Boolean.TRUE);
 			secretKeyTemplate.getDecrypt().setBooleanValue(Boolean.TRUE);
 			return session.generateKey(keyMechanism, secretKeyTemplate);
-		}
-		else if (algorithmid == PKCS11Constants.CKM_AES_KEY_GEN){
+		} else if (algorithmid == PKCS11Constants.CKM_AES_KEY_GEN){
 			AESSecretKey secretKeyTemplate = new AESSecretKey();
 			secretKeyTemplate.getValueLen().setLongValue(new Long(16));
 			secretKeyTemplate.getEncrypt().setBooleanValue(Boolean.TRUE);
 			secretKeyTemplate.getDecrypt().setBooleanValue(Boolean.TRUE);
 			return session.generateKey(keyMechanism, secretKeyTemplate);
 		}
-		
 		return null;
 	}
 	
 	public byte[] EncryptData(String inFilename, long algorithmid) throws TokenException, IOException{
-		DES3SecretKey secretEncryptionKeyTemplate = null;
+		//SecretKey secretEncryptionKeyTemplate = null;
+		long mechanism = 0;
+		byte[] encryptInitializationVector = null;
 		if(algorithmid == PKCS11Constants.CKM_DES3_KEY_GEN){
-			secretEncryptionKeyTemplate = new DES3SecretKey();
+			DES3SecretKey secretEncryptionKeyTemplate = new DES3SecretKey();
 			secretEncryptionKeyTemplate.getEncrypt().setBooleanValue(Boolean.TRUE);
 			secretEncryptionKeyTemplate.getDecrypt().setBooleanValue(Boolean.TRUE);
+			mechanism = PKCS11Constants.CKM_DES3_CBC_PAD;
+			byte[] InitializationVector = { 0, 0, 0, 0, 0, 0, 0, 0};
+			encryptInitializationVector = InitializationVector;
+			session.findObjectsInit(secretEncryptionKeyTemplate);
+		} else if(algorithmid == PKCS11Constants.CKM_DES2_KEY_GEN){
+			DES2SecretKey secretEncryptionKeyTemplate = new DES2SecretKey();
+			secretEncryptionKeyTemplate.getEncrypt().setBooleanValue(Boolean.TRUE);
+			secretEncryptionKeyTemplate.getDecrypt().setBooleanValue(Boolean.TRUE);
+			mechanism = PKCS11Constants.CKM_DES3_CBC_PAD;
+			byte[] InitializationVector = { 0, 0, 0, 0, 0, 0, 0, 0};
+			encryptInitializationVector = InitializationVector;
+			session.findObjectsInit(secretEncryptionKeyTemplate);
+		} else if(algorithmid == PKCS11Constants.CKM_DES_KEY_GEN){
+			DESSecretKey secretEncryptionKeyTemplate = new DESSecretKey();
+			secretEncryptionKeyTemplate.getEncrypt().setBooleanValue(Boolean.TRUE);
+			secretEncryptionKeyTemplate.getDecrypt().setBooleanValue(Boolean.TRUE);
+			mechanism = PKCS11Constants.CKM_DES_CBC_PAD;
+			byte[] InitializationVector = { 0, 0, 0, 0, 0, 0, 0, 0};
+			encryptInitializationVector = InitializationVector;
+			session.findObjectsInit(secretEncryptionKeyTemplate);
+		} else if(algorithmid == PKCS11Constants.CKM_AES_KEY_GEN){
+			AESSecretKey secretEncryptionKeyTemplate = new AESSecretKey();
+			//secretEncryptionKeyTemplate.getValueLen().setLongValue(new Long(16));
+			secretEncryptionKeyTemplate.getEncrypt().setBooleanValue(Boolean.TRUE);
+			secretEncryptionKeyTemplate.getDecrypt().setBooleanValue(Boolean.TRUE);
+			mechanism = PKCS11Constants.CKM_AES_CBC_PAD;
+			byte[] InitializationVector = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+			encryptInitializationVector = InitializationVector;
+			session.findObjectsInit(secretEncryptionKeyTemplate);
 		} 
 		
-		session.findObjectsInit(secretEncryptionKeyTemplate);
+		//session.findObjectsInit(secretEncryptionKeyTemplate);
 		Object[] foundEncryptKeys = session.findObjects(1);
 		session.findObjectsFinal();
 		Key encryptionKey = (Key) foundEncryptKeys[0];
@@ -414,31 +434,65 @@ public class SecurityLibrary  {
 		byte[] rawData = streamBuffer.toByteArray();
 		
 
-		Mechanism encryptionMechanism = Mechanism.get(PKCS11Constants.CKM_DES3_CBC_PAD);
-		byte[] encryptInitializationVector = { 0, 0, 0, 0, 0, 0, 0, 0 };
+		Mechanism encryptionMechanism = Mechanism.get(mechanism);
+		
 		InitializationVectorParameters encryptInitializationVectorParameters = new InitializationVectorParameters(
 			    encryptInitializationVector);
 		encryptionMechanism.setParameters(encryptInitializationVectorParameters);
 		
-
 		session.encryptInit(encryptionMechanism, encryptionKey);
 		byte[] encryptedData = session.encrypt(rawData);
 		return encryptedData;
 	}
 	
-	public byte[] DectryptData(byte[] encryptedData) throws TokenException{
+	public byte[] DectryptData(byte[] encryptedData, long algorithmid) throws TokenException{
 		
-		DES3SecretKey secretEncryptionKeyTemplate = new DES3SecretKey();
-		secretEncryptionKeyTemplate.getEncrypt().setBooleanValue(Boolean.TRUE);
-		secretEncryptionKeyTemplate.getDecrypt().setBooleanValue(Boolean.TRUE);
+		//SecretKey secretEncryptionKeyTemplate = null;
+		long mechanism = 0;
+		byte[] decryptInitializationVector = null;
+		if(algorithmid == PKCS11Constants.CKM_DES3_KEY_GEN){
+			DES3SecretKey secretEncryptionKeyTemplate = new DES3SecretKey();
+			secretEncryptionKeyTemplate.getEncrypt().setBooleanValue(Boolean.TRUE);
+			secretEncryptionKeyTemplate.getDecrypt().setBooleanValue(Boolean.TRUE);
+			mechanism = PKCS11Constants.CKM_DES3_CBC_PAD;
+			byte[] InitializationVector = { 0, 0, 0, 0, 0, 0, 0, 0};
+			decryptInitializationVector = InitializationVector;
+			session.findObjectsInit(secretEncryptionKeyTemplate);
+		} else if(algorithmid == PKCS11Constants.CKM_DES2_KEY_GEN){
+			DES2SecretKey secretEncryptionKeyTemplate = new DES2SecretKey();
+			secretEncryptionKeyTemplate.getEncrypt().setBooleanValue(Boolean.TRUE);
+			secretEncryptionKeyTemplate.getDecrypt().setBooleanValue(Boolean.TRUE);
+			mechanism = PKCS11Constants.CKM_DES3_CBC_PAD;
+			byte[] InitializationVector = { 0, 0, 0, 0, 0, 0, 0, 0};
+			decryptInitializationVector = InitializationVector;
+			session.findObjectsInit(secretEncryptionKeyTemplate);
+		} else if(algorithmid == PKCS11Constants.CKM_DES_KEY_GEN){
+			DESSecretKey secretEncryptionKeyTemplate = new DESSecretKey();
+			secretEncryptionKeyTemplate.getEncrypt().setBooleanValue(Boolean.TRUE);
+			secretEncryptionKeyTemplate.getDecrypt().setBooleanValue(Boolean.TRUE);
+			mechanism = PKCS11Constants.CKM_DES_CBC_PAD;
+			byte[] InitializationVector = { 0, 0, 0, 0, 0, 0, 0, 0};
+			decryptInitializationVector = InitializationVector;
+			session.findObjectsInit(secretEncryptionKeyTemplate);
+		} else if(algorithmid == PKCS11Constants.CKM_AES_KEY_GEN){
+			AESSecretKey secretEncryptionKeyTemplate = new AESSecretKey();
+			//secretEncryptionKeyTemplate.getValueLen().setLongValue(new Long(16));
+			secretEncryptionKeyTemplate.getEncrypt().setBooleanValue(Boolean.TRUE);
+			secretEncryptionKeyTemplate.getDecrypt().setBooleanValue(Boolean.TRUE);
+			mechanism = PKCS11Constants.CKM_AES_CBC_PAD;
+			byte[] InitializationVector = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+			decryptInitializationVector = InitializationVector;
+			session.findObjectsInit(secretEncryptionKeyTemplate);
+		}  
 		
-		session.findObjectsInit(secretEncryptionKeyTemplate);
+		//session.findObjectsInit(secretEncryptionKeyTemplate);
 		Object[] foundEncryptKeys = session.findObjects(1);
 		session.findObjectsFinal();
 		Key encryptionKey = (Key) foundEncryptKeys[0];
+		if(encryptionKey!=null)
+			System.out.println("Found the key..");
 		
-		Mechanism decryptionMechanism = Mechanism.get(PKCS11Constants.CKM_DES3_CBC_PAD);
-		byte[] decryptInitializationVector = { 0, 0, 0, 0, 0, 0, 0, 0 };
+		Mechanism decryptionMechanism = Mechanism.get(mechanism);
 		InitializationVectorParameters decryptInitializationVectorParameters = new InitializationVectorParameters(
 		    decryptInitializationVector);
 		decryptionMechanism.setParameters(decryptInitializationVectorParameters);
@@ -1955,124 +2009,6 @@ public class SecurityLibrary  {
 	}
 	
 	
-	public void createObject() throws TokenException{
-		HashSet supportedMechanisms = new HashSet(Arrays.asList(this.token.getMechanismList()));
-		
-		MechanismInfo signatureMechanismInfo;
-		
-		if (supportedMechanisms.contains(Mechanism.get(PKCS11Constants.CKM_RSA_X_509))) {
-			signatureMechanismInfo = this.token.getMechanismInfo(Mechanism
-			    .get(PKCS11Constants.CKM_RSA_X_509));
-		}
-		else if (supportedMechanisms.contains(Mechanism.get(PKCS11Constants.CKM_RSA_PKCS))) {
-			signatureMechanismInfo = this.token.getMechanismInfo(Mechanism
-			    .get(PKCS11Constants.CKM_RSA_PKCS));
-		} else if (supportedMechanisms.contains(Mechanism.get(PKCS11Constants.CKM_RSA_9796))) {
-			signatureMechanismInfo = this.token.getMechanismInfo(Mechanism
-			    .get(PKCS11Constants.CKM_RSA_9796));
-		} else if (supportedMechanisms.contains(Mechanism
-		    .get(PKCS11Constants.CKM_RSA_PKCS_OAEP))) {
-			signatureMechanismInfo = this.token.getMechanismInfo(Mechanism
-			    .get(PKCS11Constants.CKM_RSA_PKCS_OAEP));
-		} else {
-			signatureMechanismInfo = null;
-		}
-		
-		Mechanism keyPairGenerationMechanism = Mechanism
-			    .get(PKCS11Constants.CKM_RSA_PKCS_KEY_PAIR_GEN);
-		RSAPublicKey rsaPublicKeyTemplate = new RSAPublicKey();
-		RSAPrivateKey rsaPrivateKeyTemplate = new RSAPrivateKey();
-
-		// set the general attributes for the public key
-		rsaPublicKeyTemplate.getModulusBits().setLongValue(new Long(2048));
-		byte[] publicExponentBytes = { 0x01, 0x00, 0x01 }; // 2^16 + 1
-		rsaPublicKeyTemplate.getPublicExponent().setByteArrayValue(publicExponentBytes);
-		rsaPublicKeyTemplate.getToken().setBooleanValue(Boolean.TRUE);
-		byte[] id = new byte[20];
-		new Random().nextBytes(id);
-		rsaPublicKeyTemplate.getId().setByteArrayValue(id);
-		//rsaPublicKeyTemplate.getLabel().setCharArrayValue(args[2].toCharArray());
-
-//		rsaPrivateKeyTemplate.getAlwaysSensitive().setBooleanValue(Boolean.FALSE);
-	//	rsaPrivateKeyTemplate.getExtractable().setBooleanValue(Boolean.TRUE);
-		
-		rsaPrivateKeyTemplate.getSensitive().setBooleanValue(Boolean.TRUE);
-		rsaPrivateKeyTemplate.getToken().setBooleanValue(Boolean.TRUE);
-		rsaPrivateKeyTemplate.getPrivate().setBooleanValue(Boolean.TRUE);
-		rsaPrivateKeyTemplate.getId().setByteArrayValue(id);
-
-		if (signatureMechanismInfo != null) {
-			System.out.println("*******signatureMechanismInfo is not null\n");
-			rsaPublicKeyTemplate.getVerify().setBooleanValue(
-			    new Boolean(signatureMechanismInfo.isVerify()));
-			rsaPublicKeyTemplate.getVerifyRecover().setBooleanValue(
-			    new Boolean(signatureMechanismInfo.isVerifyRecover()));
-			rsaPublicKeyTemplate.getEncrypt().setBooleanValue(
-			    new Boolean(signatureMechanismInfo.isEncrypt()));
-			rsaPublicKeyTemplate.getDerive().setBooleanValue(
-			    new Boolean(signatureMechanismInfo.isDerive()));
-			rsaPublicKeyTemplate.getWrap().setBooleanValue(
-			    new Boolean(signatureMechanismInfo.isWrap()));
-
-			rsaPrivateKeyTemplate.getSign().setBooleanValue(
-			    new Boolean(signatureMechanismInfo.isSign()));
-			rsaPrivateKeyTemplate.getSignRecover().setBooleanValue(
-			    new Boolean(signatureMechanismInfo.isSignRecover()));
-			rsaPrivateKeyTemplate.getDecrypt().setBooleanValue(
-			    new Boolean(signatureMechanismInfo.isDecrypt()));
-			rsaPrivateKeyTemplate.getDerive().setBooleanValue(
-			    new Boolean(signatureMechanismInfo.isDerive()));
-			rsaPrivateKeyTemplate.getUnwrap().setBooleanValue(
-			    new Boolean(signatureMechanismInfo.isUnwrap()));
-		} else {
-			// if we have no information we assume these attributes
-			rsaPrivateKeyTemplate.getSign().setBooleanValue(Boolean.TRUE);
-			rsaPrivateKeyTemplate.getDecrypt().setBooleanValue(Boolean.TRUE);
-
-			rsaPublicKeyTemplate.getVerify().setBooleanValue(Boolean.TRUE);
-			rsaPublicKeyTemplate.getEncrypt().setBooleanValue(Boolean.TRUE);
-		}
-
-		rsaPublicKeyTemplate.getKeyType().setPresent(false);
-		rsaPublicKeyTemplate.getObjectClass().setPresent(false);
-
-		rsaPrivateKeyTemplate.getKeyType().setPresent(false);
-		rsaPrivateKeyTemplate.getObjectClass().setPresent(false);
-
-		KeyPair generatedKeyPair = session.generateKeyPair(keyPairGenerationMechanism,
-			    rsaPublicKeyTemplate, rsaPrivateKeyTemplate);
-		RSAPublicKey generatedRSAPublicKey = (RSAPublicKey) generatedKeyPair.getPublicKey();
-		RSAPrivateKey generatedRSAPrivateKey = (RSAPrivateKey) generatedKeyPair
-			    .getPrivateKey();
-		
-
-		System.out.println("**********generatedKeyPair**********");
-	//	System.out.println(generatedKeyPair.getPublicKey());
-		System.out.println("**********END**********");
-
-		
-		RSAPublicKey exportRsaPublicKeyTemplate = new RSAPublicKey();
-		exportRsaPublicKeyTemplate.getId().setByteArrayValue(id);
-
-		session.findObjectsInit(exportRsaPublicKeyTemplate);
-		Object[] foundPublicKeys = session.findObjects(1);
-		session.findObjectsFinal();
-		
-		if (foundPublicKeys.length != 1) {
-			System.out.println("Error: Cannot find the public key under the given ID!");
-		} else {
-			System.out.println("Found public key!");
-			System.out.println("_______________________________________________________________________________");
-			System.out.println(foundPublicKeys[0]);
-			System.out.println("_______________________________________________________________________________");
-		}
-
-		
-		
-	}
-	
-	
-	
 	public byte[] signData(byte[] toBeEncrypted) throws TokenException, IOException{
 		
 		String output = "";
@@ -2098,7 +2034,7 @@ public class SecurityLibrary  {
 		return session.sign(toBeEncrypted);
 	}
 	
-	public void signFile(long algorithmId, String inputFileName, String outputFileName) throws TokenException, IOException{
+	public void signFile(String inputFileName, String outputFileName) throws TokenException, IOException{
 		
 		FileInputStream decryptedContentStream = new FileInputStream(inputFileName);
 		FileOutputStream outputStream = new FileOutputStream(outputFileName);
@@ -2127,14 +2063,14 @@ public class SecurityLibrary  {
 		PrivateKey selectedSignatureKey = (PrivateKey) selectedSignatureKeyAndCertificate
 			    .getKey();
 		
-		session.signInit(Mechanism.get(algorithmId), selectedSignatureKey);
+		session.signInit(Mechanism.get(PKCS11Constants.CKM_RSA_PKCS), selectedSignatureKey);
 
 		byte[] outputByte = session.sign(toBeEncrypted);
 		
 		outputStream.write(outputByte);
 	}
 
-	public boolean verifySignFile(long algorithmId, String dataFileName,String digestFileName, String signFileName, String certFileName) 
+	public boolean verifySignFile(String dataFileName,String digestFileName, String signFileName, String certFileName) 
 			throws IOException, CertificateException, NoSuchProviderException, InvalidKeyException, 
 			SignatureException, NoSuchAlgorithmException, TokenException{
 		
@@ -2146,13 +2082,13 @@ public class SecurityLibrary  {
 		byte[] digestInfo = new byte[digestInput.available()];
 		
 		signInput.read(signature);
-		digestInput.read(digestInfo);
 		
 		RSAPrivateKey privateSignatureKeyTemplate = new RSAPrivateKey();
 		privateSignatureKeyTemplate.getSign().setBooleanValue(Boolean.TRUE);
 		String output = "";
 		
 		FileInputStream certificateInput = new FileInputStream(certFileName);
+		
 		
 		
 		KeyAndCertificate selectedSignatureKeyAndCertificate = Util.selectKeyAndCertificate(
@@ -2167,8 +2103,6 @@ public class SecurityLibrary  {
 			    .getValue().getByteArrayValue();
 		X509Certificate certificate = (X509Certificate) certificateFactory
 			    .generateCertificate(new ByteArrayInputStream(encodedCertificate));
-
-		
 		
 		Signature verifyEngine;
 
@@ -2281,7 +2215,51 @@ public class SecurityLibrary  {
 		verificationKey = (RSAPublicKey)foundPublicKeys[0];
 		
 		
-		Mechanism verificationMechanism = Mechanism.get(algorithmId);
+		//************************************************************
+		
+//		java.security.PublicKey publicKey = certificate.getPublicKey();
+//		
+//		java.security.interfaces.RSAPublicKey rsaPublicKey = (java.security.interfaces.RSAPublicKey) publicKey;
+//		
+//		RSAPublicKey verificationKey = new RSAPublicKey();
+//		
+//		byte[] modulus = rsaPublicKey.getModulus().toByteArray();
+//		
+//		verificationKey.getModulus().setByteArrayValue(modulus);
+		
+//		templateVerificationKey.getVerify().setBooleanValue(Boolean.TRUE);
+//
+//		session.findObjectsInit(templateVerificationKey);
+//
+//		Object[] foundVerificationKeyObjects = session.findObjects(1); // find first
+//		RSAPublicKey verificationKey;
+//		if (foundVerificationKeyObjects.length > 0) {
+//			verificationKey = (RSAPublicKey) foundVerificationKeyObjects[0];
+//		}	else {
+//			System.out.println("not find public verification key");
+//			return false;
+//		}
+		
+		
+//		RSAPublicKey publicKey = new RSAPublicKey(new BigInteger(1, modulusBytes),
+//			    new BigInteger(1, publicExponentBytes));
+		//be sure that your token can process the specified mechanism
+		Mechanism verificationMechanism = Mechanism.get(PKCS11Constants.CKM_RSA_PKCS);
+//		
+//		
+//		
+//		if (verificationKey != null) {
+//			System.out.println("find public verification key");
+//		}	else {
+//			System.out.println("not find public verification key");
+//			return false;
+//		}
+		
+//		certificate.setSignature();
+//		certificate.sign(arg0, arg1)
+		
+		
+		
 		
 		// initialize for signing
 		session.verifyInit(verificationMechanism, verificationKey);
@@ -2294,9 +2272,12 @@ public class SecurityLibrary  {
 			System.out.println("Verification FAILED: " + ex.getMessage());
 			return false;
 		}
-		
+
 	}
-		
+	
+	
+	
+	
 	public Boolean VerifyPackedData(InputStream dataInput){
 		
 		
@@ -2343,7 +2324,6 @@ public class SecurityLibrary  {
 		
 		return true;
 	}
-		
 	
 	public String logout(){
 		try {
